@@ -53,3 +53,7 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# 本地参考图片（非项目内容，不推送到仓库）
+image.png
+image copy.png
