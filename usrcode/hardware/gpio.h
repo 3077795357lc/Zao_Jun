@@ -14,12 +14,14 @@ static int led_fd;
 static int airA_fd;
 static int airB_fd;
 
-#define led_IO "/sys/class/gpio/gpio115/value"
-#define air_IO_A "/sys/class/gpio/gpio116/value"
-#define air_IO_B "/sys/class/gpio/gpio117/value"
+#define LED_GPIO    115
+#define AIR_INA_GPIO 116   // 电机INA控制脚
+#define AIR_INB_GPIO 117   // 电机INB控制脚
 
 void led_init(void);
 void led_ctrl(void);
+void air_con_init(void);
+void air_con_ctrl(void);
 
 
 #endif
