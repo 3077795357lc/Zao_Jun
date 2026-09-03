@@ -1,14 +1,6 @@
 #ifndef GPIO_H
 #define GPIO_H
-
-#include <unistd.h> 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-// #include "../../../lvgl/lvgl.h"
+#include "common_type.h"
 
 static int led_fd;
 static int airA_fd;

@@ -1,5 +1,6 @@
 #ifndef ENV_STATUS_H
 #define ENV_STATUS_H
+#include "common_type.h"
 
 #include <unistd.h> 
 #include <sys/types.h>

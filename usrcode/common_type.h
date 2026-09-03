@@ -4,7 +4,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
+#include <stdlib.h>
+#include <unistd.h> 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <pthread.h>
 
+// #include "../../../lvgl/lvgl.h"
  // 设备ID定义
 typedef enum
 {
