@@ -1,5 +1,5 @@
-#ifndef _GPIO_
-#define _GPIO_
+#ifndef GPIO_H
+#define GPIO_H
 
 #include <unistd.h> 
 #include <sys/types.h>

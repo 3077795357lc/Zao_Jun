@@ -1,3 +1,6 @@
+#ifndef ENV_STATUS_H
+#define ENV_STATUS_H
+
 #include <unistd.h> 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -8,3 +11,5 @@
 
 void dht11_init(void);
 int dht11_read(char *humi,char *temp);
+
+#endif
