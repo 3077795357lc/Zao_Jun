@@ -14,9 +14,9 @@ static int led_fd;
 static int airA_fd;
 static int airB_fd;
 
-#define LED_GPIO    115
-#define AIR_INA_GPIO 116   // 电机INA控制脚
-#define AIR_INB_GPIO 117   // 电机INB控制脚
+#define LED_GPIO    116
+#define AIR_INA_GPIO 117   // 电机INA控制脚
+#define AIR_INB_GPIO 118   // 电机INB控制脚
 
 void led_init(void);
 void led_ctrl(void);
