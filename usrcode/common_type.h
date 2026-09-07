@@ -26,8 +26,8 @@ typedef enum
 
 typedef enum
 {
-    DEVICE_STATUS_ON = 0,//设备开启
-    DEVICE_STATUS_OFF,//设备关闭
+    DEVICE_STATUS_OFF = 0,//设备开启
+    DEVICE_STATUS_ON,//设备关闭
 }DeviceStatus_t;
 
 typedef struct{

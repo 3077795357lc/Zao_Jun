@@ -5,12 +5,13 @@ static int dht_fd;
 //打开/dev/mydht11
 void dht11_init(void){
     //open
-    dht_fd = open("/dev/mydht11", O_RDWR | O_NONBLOCK);
+    dht_fd = open("/dev/mydht11_poll", O_RDWR);
     if (dht_fd == -1)
     {
         perror("open dht11 failed");
         return;
     }
+    printf("fd = %d\n",dht_fd);
 }
 
 //单次读取数据，对穿入的两个参数humi和temp返回温湿度值
