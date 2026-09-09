@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include "../usrcode/data/dev_status.h"
 #include "../usrcode/hardware/gpio.h"
+#include "../usrcode/hardware/env_status.h"
 
 #include "lvgl/lvgl.h"
 #include "lvgl/drivers/display/lv_linux_fbdev.h"
@@ -13,10 +14,14 @@ static void air_btn_click_cb(lv_event_t *e);
 // 设备状态文本 label
 static lv_obj_t *led_label;
 static lv_obj_t *air_label;
+static lv_obj_t *env_label;
 
 // 开关按钮
 static lv_obj_t *led_btn;
 static lv_obj_t *air_btn;
+
+//环境状态
+static EnvStatus_t env;
 
 /* 32px 中文黑体，定义见 fonts/heiti_32.c */
 LV_FONT_DECLARE(heiti_32);
@@ -39,6 +44,13 @@ static void ui_timer_cb(lv_timer_t *timer)
         lv_label_set_text(air_label, "ON");
     } else {
         lv_label_set_text(air_label, "OFF");
+    }
+}
+
+static void dht11_timer_cb(lv_timer_t *timer){
+    if (dht11_read(&env) == 0) {
+    lv_label_set_text_fmt(env_label, "温度：%d  湿度：%d%%",
+                          (unsigned char)env.temp, (unsigned char)env.humi);
     }
 }
 
@@ -74,8 +86,16 @@ static void ui_create(void)
     lv_obj_add_event_cb(led_btn, led_btn_click_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(air_btn, air_btn_click_cb, LV_EVENT_CLICKED, NULL);
 
-    // 每 50ms 触发一次ui_timer_cb
+    //传感器-创建标签-不用绑定回调
+    //文本内容不是固定的
+    env_label = lv_label_create(scr);
+    lv_obj_set_style_text_font(env_label, &heiti_32, 0);
+    lv_label_set_text(env_label, "温度：--  湿度：--%");
+    lv_obj_align(env_label, LV_ALIGN_TOP_LEFT, 20, 20);
+
+    // DHT11 驱动要求两次读取间隔 >=1s，这里留余量每 1.5s 读一次
     lv_timer_create(ui_timer_cb, 50, NULL);
+    lv_timer_create(dht11_timer_cb, 2000, NULL);
 }
 
 // 灯具开关
@@ -99,6 +119,7 @@ static void air_btn_click_cb(lv_event_t *e)
 int main(void)
 {
     // 硬件与 LVGL 环境初始化
+    dht11_init();
     air_con_init();
     led_init();
     lv_init();

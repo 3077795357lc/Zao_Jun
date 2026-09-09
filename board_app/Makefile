@@ -31,7 +31,8 @@ TARGET    = $(BUILD)/main_arm
 APP_SRC   = main.c \
             fonts/heiti_32.c \
             ../usrcode/data/dev_status.c \
-            ../usrcode/hardware/gpio.c
+            ../usrcode/hardware/gpio.c \
+            ../usrcode/hardware/env_status.c
 
 LVGL_SRC := $(shell find $(LVGL_DIR)/src -name '*.c')
 ALL_SRC   = $(APP_SRC) $(LVGL_SRC)

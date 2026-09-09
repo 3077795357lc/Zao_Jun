@@ -1,4 +1,5 @@
 #include "env_status.h"
+#include <errno.h>
 
 static int dht_fd;
 
@@ -25,9 +26,11 @@ int dht11_read(EnvStatus_t *env){
     }
     
     char buf[2];
-    if (read(dht_fd,buf,2) == 2){
+    ssize_t n = read(dht_fd, buf, 2);
+    if (n == 2){
         env->humi = buf[0];
         env->temp = buf[1];
+        return 0;
     }
     else{
         perror("read dht_fd failed");
