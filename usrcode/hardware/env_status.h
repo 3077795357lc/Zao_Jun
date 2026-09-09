@@ -10,7 +10,17 @@
 #include <stdio.h>
 #include <string.h>
 
+/* 温湿度数据：与驱动输出的原始字节一致 */
+typedef struct env_status
+{
+    char temp;   // 温度
+    char humi;   // 湿度
+} EnvStatus_t;
+
 void dht11_init(void);
-int dht11_read(char *humi,char *temp);
+
+/* 单次读取温湿度，成功返回0并把数据填入 env，失败返回-1 */
+int dht11_read(EnvStatus_t *env);
+
 
 #endif

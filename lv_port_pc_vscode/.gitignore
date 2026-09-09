@@ -1,0 +1,12 @@
+# Ignore build folder
+build/
+bin/
+
+# Ignore all dot folders, with below exceptions
+.*/
+
+# VSCode
+.vscode
+
+# MacOS file
+.DS_Store

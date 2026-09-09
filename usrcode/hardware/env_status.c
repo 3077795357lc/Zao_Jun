@@ -14,17 +14,20 @@ void dht11_init(void){
     printf("fd = %d\n",dht_fd);
 }
 
-//单次读取数据，对穿入的两个参数humi和temp返回温湿度值
-int dht11_read(char *humi,char *temp){
+//单次读取数据，把温湿度填入 env 结构体
+int dht11_read(EnvStatus_t *env){
     if (dht_fd == -1){
         perror("read dht_fd failed");
+        return -1;
+    }
+    if (env == NULL){
         return -1;
     }
     
     char buf[2];
     if (read(dht_fd,buf,2) == 2){
-        *humi = buf[0];
-        *temp = buf[1];
+        env->humi = buf[0];
+        env->temp = buf[1];
     }
     else{
         perror("read dht_fd failed");
@@ -32,3 +35,4 @@ int dht11_read(char *humi,char *temp){
     }
     return 0;
 }
+
