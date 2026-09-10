@@ -57,3 +57,14 @@ dkms.conf
 # 本地参考图片（非项目内容，不推送到仓库）
 image.png
 image copy.png
+
+# 交叉编译产物（build/main_arm 等，不推送到仓库）
+/usrcode/build/
+
+# 历史测试用可执行文件（无扩展名，不是源码）
+/usrcode/main
+/usrcode/main_arm
+/usrcode/demo
+/usrcode/hardware/demo
+/usrcode/hardware/dht11_test_my
+/usrcode/hardware/dht11_drv_poll.c

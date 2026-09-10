@@ -12,13 +12,12 @@ LVGL_DIR := ../lv_port_pc_vscode/lvgl
 BUILD     = build
 OBJ_DIR   = $(BUILD)/obj
 
-# lv_conf.h 在本目录；-I include 供用户代码 include "lvgl/lvgl.h"
+# lv_conf.h 在本目录；-I. 同时供 include "lvgl/lvgl.h" 和自身模块引用
 CFLAGS   += -O2 -g -Wall
 CFLAGS   += -std=gnu99
 CFLAGS   += -I. -I$(LVGL_DIR)/include -I$(LVGL_DIR)/src -I$(LVGL_DIR)
 CFLAGS   += -DLV_CONF_INCLUDE_SIMPLE=1
 CFLAGS   += -Wno-unused-function -Wno-unused-variable
-CFLAGS   += -I. -I../usrcode   
 
 LDFLAGS  += -static -lm -lpthread
 
@@ -27,12 +26,14 @@ TARGET    = $(BUILD)/main_arm
 # 生成的 .o 规则在 all: 之前，需显式指定默认目标是 all
 .DEFAULT_GOAL := all
 
-# 应用层源码：GUI 主程序 + 字体 + 设备状态表 + 真实 GPIO 驱动
+# 应用层源码：入口 main.c + UI 界面层 + 字体 + 设备状态表 + 真实 GPIO 驱动
 APP_SRC   = main.c \
             fonts/heiti_32.c \
-            ../usrcode/data/dev_status.c \
-            ../usrcode/hardware/gpio.c \
-            ../usrcode/hardware/env_status.c
+            fonts/icons_32.c \
+            ui/ui_main.c \
+            data/dev_status.c \
+            hardware/gpio.c \
+            hardware/env_status.c
 
 LVGL_SRC := $(shell find $(LVGL_DIR)/src -name '*.c')
 ALL_SRC   = $(APP_SRC) $(LVGL_SRC)
