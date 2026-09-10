@@ -38,7 +38,7 @@
 - 依托 **MQTT** 物联网通信协议，打通设备端与云端的数据链路；
 - 支持**微信小程序、浏览器网页、开发板显示屏**等多端远程监测与设备控制。
 
-项目当前处于**开发阶段**：需求分析与架构梳理进行中。
+项目当前处于**开发阶段**：系统架构已确定，板端 LVGL 界面、温湿度采集、灯具与空调的开关控制及状态显示已跑通；日志管理、NTP、MQTT 与多端联动开发中。
 
 ### 🔥 名字由来
 
@@ -73,7 +73,9 @@
 
 ## 🏗️ 系统架构图
 
-> 以下为规划中的系统架构，完整架构图详见 `doc/` 目录。
+> 完整的系统架构图见 [architect_design.png](./architect_design.png)。
+
+![系统架构图](./architect_design.png)
 
 ```mermaid
 flowchart TB
@@ -113,11 +115,22 @@ flowchart TB
 
 ```
 Smart_home_central/
-├── README.md      # 项目说明（本文件）
-├── TODO.md        # 任务清单，接下来要做什么
-├── doc/           # 架构图、模块详解等文档
-├── usrcode/       # 业务源码
-└── usrlib/        # 组件库 / 第三方库
+├── README.md             # 项目说明（本文件）
+├── architect_design.png  # 系统架构图
+├── lv_port_pc_vscode/    # LVGL 图形库源码
+└── usrcode/              # 应用源码
+    ├── Makefile          # 交叉编译脚本，产出 build/main_arm
+    ├── lv_conf.h         # LVGL 裁剪配置
+    ├── main.c            # 程序入口：硬件初始化 + 启动界面 + 主循环
+    ├── common_type.h/.c  # 公共类型定义（设备 ID、设备状态）
+    ├── ui/               # 界面层
+    │   ├── ui_main.c     #   界面外壳：顶栏时钟 + 侧栏导航 + 页面切换
+    │   ├── ui_theme.h    #   配色与尺寸常量
+    │   ├── ui_icons.h    #   图标字形宏
+    │   └── pages/        #   各页面：主界面、设置、日志、摄像头、音频、定时任务
+    ├── data/             # 数据结构层：设备状态表
+    ├── hardware/         # 硬件驱动层：GPIO、DHT11 温湿度
+    └── assets/fonts/     # 静态资源：中文黑体、FontAwesome 图标字体
 ```
 
 ***
@@ -126,8 +139,8 @@ Smart_home_central/
 
 | 阶段        | 状态  |
 | :-------- | :-- |
-| 需求分析与架构梳理 | 进行中 |
-| 业务代码开发    | 未开始 |
+| 需求分析与架构梳理 | 已完成 |
+| 业务代码开发    | 进行中 |
 | 联调与稳定性测试  | 未开始 |
 | 演示视频      | 未开始 |
 
@@ -135,7 +148,7 @@ Smart_home_central/
 
 ## 🗺️ Roadmap
 
-- [ ] 需求分析与系统架构梳理
+- [√] 需求分析与系统架构梳理
 - [ ] 多源传感器数据采集模块
 - [ ] 家电设备状态监测模块
 - [ ] 本地日志管理模块
@@ -148,6 +161,6 @@ Smart_home_central/
 
 ## 📄 相关文档
 
-- `TODO.md` — 任务清单与开发规划
-- `doc/` — 系统架构图、模块设计详解等
+- [architect_design.png](./architect_design.png) — 系统架构图
+- `usrcode/` 各子目录下的 `readme` — ui / data / hardware 三层职责速览
 

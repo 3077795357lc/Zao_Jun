@@ -12,10 +12,12 @@ LVGL_DIR := ../lv_port_pc_vscode/lvgl
 BUILD     = build
 OBJ_DIR   = $(BUILD)/obj
 
-# lv_conf.h 在本目录；-I. 同时供 include "lvgl/lvgl.h" 和自身模块引用
+# lv_conf.h 在本目录；
+# -I.   供 include "lvgl/lvgl.h" 以及跨模块引用 (ui/, data/, hardware/)
+# -Iui  供 ui/ 内部互相引用 (ui_theme.h, pages/page.h)
 CFLAGS   += -O2 -g -Wall
 CFLAGS   += -std=gnu99
-CFLAGS   += -I. -I$(LVGL_DIR)/include -I$(LVGL_DIR)/src -I$(LVGL_DIR)
+CFLAGS   += -I. -Iui -I$(LVGL_DIR)/include -I$(LVGL_DIR)/src -I$(LVGL_DIR)
 CFLAGS   += -DLV_CONF_INCLUDE_SIMPLE=1
 CFLAGS   += -Wno-unused-function -Wno-unused-variable
 
@@ -26,11 +28,13 @@ TARGET    = $(BUILD)/main_arm
 # 生成的 .o 规则在 all: 之前，需显式指定默认目标是 all
 .DEFAULT_GOAL := all
 
-# 应用层源码：入口 main.c + UI 界面层 + 字体 + 设备状态表 + 真实 GPIO 驱动
+# 应用层源码：入口 main.c + 界面外壳与页面 + 字体 + 数据层 + 硬件驱动
 APP_SRC   = main.c \
-            fonts/heiti_32.c \
-            fonts/icons_32.c \
+            assets/fonts/heiti_32.c \
+            assets/fonts/icons_32.c \
             ui/ui_main.c \
+            ui/pages/page_dashboard.c \
+            ui/pages/page_stub.c \
             data/dev_status.c \
             hardware/gpio.c \
             hardware/env_status.c

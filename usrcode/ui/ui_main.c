@@ -1,42 +1,48 @@
-/* 主界面：顶栏时间日期 + 左侧导航栏 + 右侧温湿度与设备控制卡片
+/* 界面外壳：顶栏时钟 + 左侧导航 + 右侧内容区
  *
- * 所有控件更新（定时器回调、开关事件）都在 LVGL 线程内执行，
- * 数据来源是 data/ 状态表与 hardware/ 驱动，本文件不直接碰寄存器。
+ * 页面切换逻辑集中在这里：侧栏按钮 -> page_show(索引)。
+ * 每个页面首次进入时才构建控件，之后切回只是显示/隐藏，
+ * 所以页面内部的定时器只会注册一次。
  */
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <time.h>
 
 #include "ui.h"
 #include "ui_icons.h"
 #include "ui_theme.h"
+#include "pages/page.h"
 
-#include "data/dev_status.h"
-#include "hardware/env_status.h"
-#include "hardware/gpio.h"
+/* 侧栏导航表：顺序即显示顺序，索引 0 是默认页面 */
+static const Page_t pages[] = {
+    { ICON_HOME,  "主界面",     page_dashboard_create },
+    { ICON_GEAR,  "设置",       page_settings_create },
+    { ICON_LOG,   "日志管理",   page_log_create },
+    { ICON_CAM,   "查看摄像头", page_camera_create },
+    { ICON_MUSIC, "音频播放",   page_audio_create },
+    { ICON_CLOCK, "定时任务",   page_schedule_create },
+};
 
-/* ---------------- 控件句柄 ---------------- */
-// 顶栏：时间日期
+#define PAGE_COUNT ((int)(sizeof(pages) / sizeof(pages[0])))
+
+static lv_obj_t *content;                /* 右侧内容区，各页面的挂载点 */
+static lv_obj_t *nav_btns[PAGE_COUNT];   /* 侧栏按钮，用于高亮当前页 */
+static lv_obj_t *nav_icons[PAGE_COUNT];  /* 侧栏按钮里的图标，需单独换色 */
+static lv_obj_t *page_obj[PAGE_COUNT];   /* 各页面根容器，首次进入时创建 */
+
 static lv_obj_t *time_label;
 static lv_obj_t *date_label;
 
-// 温湿度数值
-static lv_obj_t *temp_label;
-static lv_obj_t *humi_label;
+/* 侧栏文字配色的两种状态 */
+#define NAV_BG_ON       COLOR_ACCENT
+#define NAV_BG_OFF      COLOR_SIDEBAR
+#define NAV_TEXT_ON     0xFFFFFF
+#define NAV_TEXT_OFF    0x7A5230
 
-// 设备开关与状态文字
-static lv_obj_t *led_sw;
-static lv_obj_t *air_sw;
-static lv_obj_t *led_state_label;
-static lv_obj_t *air_state_label;
+/* ============ 顶栏时钟 ============ */
 
-//环境状态
-static EnvStatus_t env;
-
-/* ============ 定时器回调 ============ */
-
-/* 顶栏时钟：每秒刷新一次系统时间 */
+/* 每秒刷新一次系统时间 */
 static void clock_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
@@ -54,155 +60,54 @@ static void clock_timer_cb(lv_timer_t *timer)
     lv_label_set_text(time_label, buf);
 }
 
-/* 设备状态同步：每 50ms 用状态表刷新开关位置和“开/关”文字 */
-static void ui_timer_cb(lv_timer_t *timer)
+/* ============ 页面切换 ============ */
+
+static void page_show(int idx)
 {
-    (void)timer;
-
-    bool led_on = (DEVICE_STATUS_ON == get_dev_status(DEVICE_LIGHT));
-    bool air_on = (DEVICE_STATUS_ON == get_dev_status(DEVICE_AIRCONDITIONER));
-
-    if (led_on != lv_obj_has_state(led_sw, LV_STATE_CHECKED)) {
-        if (led_on) lv_obj_add_state(led_sw, LV_STATE_CHECKED);
-        else        lv_obj_remove_state(led_sw, LV_STATE_CHECKED);
-    }
-    if (air_on != lv_obj_has_state(air_sw, LV_STATE_CHECKED)) {
-        if (air_on) lv_obj_add_state(air_sw, LV_STATE_CHECKED);
-        else        lv_obj_remove_state(air_sw, LV_STATE_CHECKED);
+    if (idx < 0 || idx >= PAGE_COUNT) {
+        return;
     }
 
-    lv_label_set_text(led_state_label, led_on ? "开" : "关");
-    lv_label_set_text(air_state_label, air_on ? "开" : "关");
-}
+    /* 首次进入才构建页面内容 */
+    if (page_obj[idx] == NULL) {
+        lv_obj_t *root = lv_obj_create(content);
+        lv_obj_set_size(root, LV_PCT(100), LV_PCT(100));
+        lv_obj_set_style_bg_opa(root, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(root, 0, 0);
+        lv_obj_set_style_pad_all(root, 0, 0);
+        lv_obj_set_scrollable(root, false);
+        page_obj[idx] = root;
 
-/* 温湿度采集：DHT11 两次读取需间隔 >=1s，这里每 2s 读一次 */
-static void dht11_timer_cb(lv_timer_t *timer)
-{
-    (void)timer;
-
-    if (dht11_read(&env) == 0) {
-        lv_label_set_text_fmt(temp_label, "%d℃", (unsigned char)env.temp);
-        lv_label_set_text_fmt(humi_label, "%d%%", (unsigned char)env.humi);
+        pages[idx].create(root);
     }
-}
 
-/* ============ 设备开关事件 ============ */
+    /* 只显示当前页，其余隐藏（控件保留，避免重建与重复注册定时器） */
+    for (int i = 0; i < PAGE_COUNT; i++) {
+        if (page_obj[i] == NULL) {
+            continue;
+        }
+        if (i == idx) lv_obj_set_hidden(page_obj[i], false);
+        else          lv_obj_set_hidden(page_obj[i], true);
+    }
 
-/* 灯具开关：只在期望状态与状态表不一致时才翻转，避免重复触发硬件 */
-static void led_switch_cb(lv_event_t *e)
-{
-    lv_obj_t *sw = lv_event_get_target(e);
-    bool want_on = lv_obj_has_state(sw, LV_STATE_CHECKED);
-
-    if (want_on != (DEVICE_STATUS_ON == get_dev_status(DEVICE_LIGHT))) {
-        led_ctrl();
-        set_dev_status(DEVICE_LIGHT);
+    /* 高亮当前页对应的侧栏按钮 */
+    for (int i = 0; i < PAGE_COUNT; i++) {
+        bool on = (i == idx);
+        lv_obj_set_style_bg_color(nav_btns[i],
+                                  lv_color_hex(on ? NAV_BG_ON : NAV_BG_OFF), 0);
+        lv_obj_set_style_text_color(nav_btns[i],
+                                    lv_color_hex(on ? NAV_TEXT_ON : NAV_TEXT_OFF), 0);
+        lv_obj_set_style_text_color(nav_icons[i],
+                                    lv_color_hex(on ? NAV_TEXT_ON : COLOR_ACCENT), 0);
     }
 }
 
-/* 空调开关 */
-static void air_switch_cb(lv_event_t *e)
+static void nav_btn_cb(lv_event_t *e)
 {
-    lv_obj_t *sw = lv_event_get_target(e);
-    bool want_on = lv_obj_has_state(sw, LV_STATE_CHECKED);
-
-    if (want_on != (DEVICE_STATUS_ON == get_dev_status(DEVICE_AIRCONDITIONER))) {
-        air_con_ctrl();
-        set_dev_status(DEVICE_AIRCONDITIONER);
-    }
+    page_show((int)(intptr_t)lv_event_get_user_data(e));
 }
 
-/* ============ UI 组装 ============ */
-
-/* 卡片内的一行：[图标][名称] ……，返回该行供调用者继续追加内容 */
-static lv_obj_t *row_create(lv_obj_t *parent, const char *icon,
-                            uint32_t icon_color, const char *name)
-{
-    lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_set_size(row, LV_PCT(100), 64);
-    lv_obj_set_style_bg_color(row, lv_color_hex(COLOR_ROW), 0);
-    lv_obj_set_style_radius(row, 14, 0);
-    lv_obj_set_style_border_width(row, 0, 0);
-    lv_obj_set_style_pad_hor(row, 18, 0);
-    lv_obj_set_style_pad_ver(row, 6, 0);
-    lv_obj_set_scrollable(row, false);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
-                          LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(row, 14, 0);
-
-    lv_obj_t *icon_label = lv_label_create(row);
-    lv_label_set_text(icon_label, icon);
-    lv_obj_set_style_text_font(icon_label, &icons_32, 0);
-    lv_obj_set_style_text_color(icon_label, lv_color_hex(icon_color), 0);
-    lv_obj_set_width(icon_label, 40);
-    lv_obj_set_style_text_align(icon_label, LV_TEXT_ALIGN_CENTER, 0);
-
-    lv_obj_t *name_label = lv_label_create(row);
-    lv_label_set_text(name_label, name);
-    lv_obj_set_style_text_font(name_label, &heiti_32, 0);
-    lv_obj_set_style_text_color(name_label, lv_color_hex(COLOR_TEXT), 0);
-    lv_obj_set_width(name_label, 120);
-
-    return row;
-}
-
-/* 弹性占位：把后面的控件推到行尾 */
-static void spacer_create(lv_obj_t *row)
-{
-    lv_obj_t *spacer = lv_obj_create(row);
-    lv_obj_set_size(spacer, 0, 0);
-    lv_obj_set_flex_grow(spacer, 1);
-    lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(spacer, 0, 0);
-    lv_obj_set_style_pad_all(spacer, 0, 0);
-}
-
-/* 卡片小标题 */
-static void section_title_create(lv_obj_t *parent, const char *text)
-{
-    lv_obj_t *title = lv_label_create(parent);
-    lv_label_set_text(title, text);
-    lv_obj_set_style_text_font(title, &heiti_32, 0);
-    lv_obj_set_style_text_color(title, lv_color_hex(COLOR_ACCENT), 0);
-    lv_obj_set_style_pad_left(title, 6, 0);
-}
-
-/* 数值文字（温度 / 湿度） */
-static lv_obj_t *value_create(lv_obj_t *row, const char *text)
-{
-    lv_obj_t *label = lv_label_create(row);
-    lv_label_set_text(label, text);
-    lv_obj_set_style_text_font(label, &heiti_32, 0);
-    lv_obj_set_style_text_color(label, lv_color_hex(COLOR_TEXT), 0);
-    return label;
-}
-
-/* 滑动开关：槽 + 球；开启时槽变绿 */
-static lv_obj_t *switch_create(lv_obj_t *row, lv_event_cb_t cb)
-{
-    lv_obj_t *sw = lv_switch_create(row);
-    lv_obj_set_size(sw, 76, 40);
-    lv_obj_set_style_bg_color(sw, lv_color_hex(COLOR_SW_OFF), LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(sw, lv_color_hex(COLOR_SW_ON),
-                              LV_PART_INDICATOR | LV_STATE_CHECKED);
-    lv_obj_set_style_bg_color(sw, lv_color_hex(0xFFFFFF), LV_PART_KNOB);
-    lv_obj_set_style_pad_all(sw, 4, LV_PART_KNOB);
-    lv_obj_add_event_cb(sw, cb, LV_EVENT_VALUE_CHANGED, NULL);
-    return sw;
-}
-
-/* 设备状态文字：开 / 关 */
-static lv_obj_t *state_create(lv_obj_t *row)
-{
-    lv_obj_t *label = lv_label_create(row);
-    lv_label_set_text(label, "关");
-    lv_obj_set_style_text_font(label, &heiti_32, 0);
-    lv_obj_set_style_text_color(label, lv_color_hex(COLOR_TEXT_DIM), 0);
-    lv_obj_set_width(label, 48);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
-    return label;
-}
+/* ============ 界面组装 ============ */
 
 /* 顶栏：时间（大字）+ 日期，居中显示 */
 static void header_create(lv_obj_t *scr)
@@ -229,12 +134,9 @@ static void header_create(lv_obj_t *scr)
     lv_obj_set_style_text_color(date_label, lv_color_hex(COLOR_TEXT_DIM), 0);
 }
 
-/* 左侧导航栏：5 个功能入口（跳转暂未实现），垂直对齐 */
+/* 左侧导航栏：各页面的入口，垂直对齐 */
 static void sidebar_create(lv_obj_t *scr)
 {
-    static const char *names[] = {"设置", "日志管理", "查看摄像头", "音频播放", "定时任务"};
-    static const char *icons[] = {ICON_GEAR, ICON_LOG, ICON_CAM, ICON_MUSIC, ICON_CLOCK};
-
     lv_obj_t *bar = lv_obj_create(scr);
     lv_obj_set_size(bar, SIDEBAR_W, CONTENT_H);
     lv_obj_align(bar, LV_ALIGN_TOP_LEFT, SIDEBAR_X, CONTENT_Y);
@@ -243,13 +145,12 @@ static void sidebar_create(lv_obj_t *scr)
     lv_obj_set_style_pad_all(bar, 0, 0);
     lv_obj_set_scrollable(bar, false);
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(bar, 16, 0);
+    lv_obj_set_style_pad_row(bar, SIDEBAR_GAP, 0);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < PAGE_COUNT; i++) {
         lv_obj_t *btn = lv_button_create(bar);
-        lv_obj_set_size(btn, LV_PCT(100), 68);
+        lv_obj_set_size(btn, LV_PCT(100), SIDEBAR_BTN_H);
         lv_obj_set_style_radius(btn, 18, 0);
-        lv_obj_set_style_bg_color(btn, lv_color_hex(COLOR_SIDEBAR), 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_pad_left(btn, 16, 0);
         lv_obj_set_style_pad_right(btn, 8, 0);
@@ -257,57 +158,35 @@ static void sidebar_create(lv_obj_t *scr)
         lv_obj_set_flex_align(btn, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                               LV_FLEX_ALIGN_CENTER);
         lv_obj_set_style_pad_column(btn, 12, 0);
+        /* 文字颜色设在按钮上，由子标签继承，切换页面时整行一起变色 */
+        lv_obj_set_style_text_color(btn, lv_color_hex(NAV_TEXT_OFF), 0);
+        lv_obj_add_event_cb(btn, nav_btn_cb, LV_EVENT_CLICKED,
+                            (void *)(intptr_t)i);
 
         lv_obj_t *icon = lv_label_create(btn);
-        lv_label_set_text(icon, icons[i]);
+        lv_label_set_text(icon, pages[i].icon);
         lv_obj_set_style_text_font(icon, &icons_32, 0);
         lv_obj_set_style_text_color(icon, lv_color_hex(COLOR_ACCENT), 0);
 
         lv_obj_t *text = lv_label_create(btn);
-        lv_label_set_text(text, names[i]);
+        lv_label_set_text(text, pages[i].name);
         lv_obj_set_style_text_font(text, &heiti_32, 0);
-        lv_obj_set_style_text_color(text, lv_color_hex(0x7A5230), 0);
+
+        nav_btns[i] = btn;
+        nav_icons[i] = icon;
     }
 }
 
-/* 右侧主卡片：环境信息 + 设备控制 */
-static void panel_create(lv_obj_t *scr)
+/* 右侧内容区：位置固定，各页面挂在这里 */
+static void content_create(lv_obj_t *scr)
 {
-    lv_obj_t *panel = lv_obj_create(scr);
-    lv_obj_set_size(panel, SCREEN_W - PANEL_X - PANEL_RIGHT, CONTENT_H);
-    lv_obj_align(panel, LV_ALIGN_TOP_LEFT, PANEL_X, CONTENT_Y);
-    lv_obj_set_style_bg_color(panel, lv_color_hex(COLOR_CARD), 0);
-    lv_obj_set_style_radius(panel, 24, 0);
-    lv_obj_set_style_border_width(panel, 0, 0);
-    lv_obj_set_style_shadow_width(panel, 18, 0);
-    lv_obj_set_style_shadow_opa(panel, LV_OPA_20, 0);
-    lv_obj_set_style_shadow_color(panel, lv_color_hex(0xD9B48F), 0);
-    lv_obj_set_style_pad_all(panel, 22, 0);
-    lv_obj_set_scrollable(panel, false);
-    lv_obj_set_flex_flow(panel, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(panel, 12, 0);
-
-    /* ---- 环境信息 ---- */
-    section_title_create(panel, "环境信息");
-
-    lv_obj_t *temp_row = row_create(panel, ICON_TEMP, 0xE74C3C, "温度");
-    temp_label = value_create(temp_row, "--℃");
-
-    lv_obj_t *humi_row = row_create(panel, ICON_HUMI, 0x3498DB, "湿度");
-    humi_label = value_create(humi_row, "--%");
-
-    /* ---- 设备控制 ---- */
-    section_title_create(panel, "设备控制");
-
-    lv_obj_t *led_row = row_create(panel, ICON_BULB, 0xF39C12, "灯具");
-    spacer_create(led_row);
-    led_sw = switch_create(led_row, led_switch_cb);
-    led_state_label = state_create(led_row);
-
-    lv_obj_t *air_row = row_create(panel, ICON_SNOW, 0x3498DB, "空调");
-    spacer_create(air_row);
-    air_sw = switch_create(air_row, air_switch_cb);
-    air_state_label = state_create(air_row);
+    content = lv_obj_create(scr);
+    lv_obj_set_size(content, SCREEN_W - PANEL_X - PANEL_RIGHT, CONTENT_H);
+    lv_obj_align(content, LV_ALIGN_TOP_LEFT, PANEL_X, CONTENT_Y);
+    lv_obj_set_style_bg_opa(content, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(content, 0, 0);
+    lv_obj_set_style_pad_all(content, 0, 0);
+    lv_obj_set_scrollable(content, false);
 }
 
 /* ============ 对外接口 ============ */
@@ -319,10 +198,10 @@ void ui_init(void)
     lv_obj_set_scrollable(scr, false);
 
     header_create(scr);
+    content_create(scr);
     sidebar_create(scr);
-    panel_create(scr);
 
-    lv_timer_create(ui_timer_cb, 50, NULL);       /* 设备状态同步 */
-    lv_timer_create(dht11_timer_cb, 2000, NULL);  /* 温湿度采集 */
+    page_show(0);   /* 默认进入主界面 */
+
     lv_timer_create(clock_timer_cb, 1000, NULL);  /* 时间日期 */
 }
