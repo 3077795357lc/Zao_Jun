@@ -4,10 +4,10 @@
 int main(){
     printf("== demo start ==\n");
     led_init();
-    led_ctrl();
+    led_set(true);
 
     // air_con_init();
-    // air_con_ctrl();
+    // air_con_set(true);
     
     EnvStatus_t env;
     dht11_init();

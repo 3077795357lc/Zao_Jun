@@ -17,7 +17,7 @@ void dev_status_init(void);
 //获取某设备当前开关状态
 DeviceStatus_t get_dev_status(DeviceID_t id);
 
-//翻转某设备开关状态
-void set_dev_status(DeviceID_t id);
+//设置某设备的开关状态
+void set_dev_status(DeviceID_t id, DeviceStatus_t status);
 
 #endif

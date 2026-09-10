@@ -11,10 +11,18 @@
 #include "hardware/env_status.h"
 #include "hardware/gpio.h"
 #include "data/dev_status.h"
+#include "net/ntp.h"
 
 int main(void)
 {
-    // 硬件与状态表初始化
+    /* 开机对时：放在最前面，网络不通最多等 2 秒，此时屏幕还没点亮，
+     * 用户察觉不到；等界面出来时顶栏时钟已经是准的 */
+    ntp_sync(2000);
+
+    /* 硬件与状态表初始化。
+     * air_con_init()/led_init() 会把设备显式置为关闭，
+     * 与 dev_status_init() 的初始状态(OFF)对齐 —— 这两处必须成对修改，
+     * 否则状态表会与真实硬件相反。 */
     dht11_init();
     air_con_init();
     led_init();

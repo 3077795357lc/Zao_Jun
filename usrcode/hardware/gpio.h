@@ -11,9 +11,9 @@ static int airB_fd;
 #define AIR_INB_GPIO 118   // 电机INB控制脚
 
 void led_init(void);
-void led_ctrl(void);
+void led_set(bool on);
 void air_con_init(void);
-void air_con_ctrl(void);
+void air_con_set(bool on);
 
 
 #endif

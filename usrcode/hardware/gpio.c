@@ -65,121 +65,56 @@ static void gpio_export_output(int gpio_num){
     close(fd);
 }
 
-void led_init(void){
-    gpio_export_output(LED_GPIO);
-}
-
-void led_ctrl(void){
-    int fd;
-    char buf[2] = {0};
+/* 把引脚电平写为指定状态（true=高电平，false=低电平） */
+static void gpio_write_value(int gpio_num, bool level){
     char path[64];
+    const char *text;
+    int fd;
 
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", LED_GPIO);
-    fd = open(path, O_RDWR);
+    //sysfs 的 value 文件只认字符 '0'/'1'，先把电平翻成对应的字符串
+    if(level){
+        text = "1";
+    }
+    else{
+        text = "0";
+    }
+
+    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", gpio_num);
+    fd = open(path, O_WRONLY);
     if(fd == -1){
-        perror("open led gpio value failed:");
+        perror("open gpio value failed:");
         return;
     }
-    
-    //读value
-    if(read(fd, buf, 1) == -1){
-        perror("read led gpio value failed:");
-        close(fd);
-        return;
-    }
-    lseek(fd, 0, SEEK_SET);
-
-    //控制开关-原来是关，则打开；原来是开，则关闭；
-    if(buf[0] == '1'){
-        if(write(fd, "0", 1) == -1){
-            perror("write led gpio value failed:");
-            close(fd);
-            return;
-        }
-    }
-    else if(buf[0] == '0'){
-        if(write(fd, "1", 1) == -1){
-            perror("write led gpio value failed:");
-            close(fd);
-            return;
-        }
-    }
-    else{//非法值则关闭 fd 后返回
-        printf("buf为其他值:%s\n", buf);
-        close(fd);
-        return;
+    if(write(fd, text, 1) == -1){
+        perror("write gpio value failed:");
     }
     close(fd);
+}
+
+void led_init(void){
+    gpio_export_output(LED_GPIO);
+    /* 显式关灯：GPIO 电平会被上一次运行继承下来（gpio_export_output
+       在引脚已导出时不会重写 direction，也就不会把电平拉低），
+       这里主动写低电平，让硬件状态与 dev_status_init() 的初始值一致 */
+    gpio_write_value(LED_GPIO, false);
+}
+
+void led_set(bool on){
+    gpio_write_value(LED_GPIO, on);
 }
 
 void air_con_init(void){
     //分别导出 INA/INB 引脚并配置为输出
     gpio_export_output(AIR_INA_GPIO);
     gpio_export_output(AIR_INB_GPIO);
+    /* 两个脚都拉低 = 电机停转。空调必须强制停机而不是沿用电平，
+       否则读到上一次留下的 INA=1/INB=0 时会带着电机一起启动 */
+    gpio_write_value(AIR_INA_GPIO, false);
+    gpio_write_value(AIR_INB_GPIO, false);
 }
 
-void air_con_ctrl(void){
-    int fd_a;
-    int fd_b;
-    char buf_a[2] = {0};
-    char buf_b[2] = {0};
-    char write_a;
-    char write_b;
-    char path[64];
-
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", AIR_INA_GPIO);
-    fd_a = open(path, O_RDWR);
-    if(fd_a == -1){
-        perror("open INA gpio value failed:");
-        return;
-    }
-    snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", AIR_INB_GPIO);
-    fd_b = open(path, O_RDWR);
-    if(fd_b == -1){
-        perror("open INB gpio value failed:");
-        close(fd_a);//释放fd_a，避免泄漏
-        return;
-    }
-
-    //读取两个引脚当前电平，任一失败都同时关闭两个fd
-    if(read(fd_a, buf_a, 1) == -1){
-        perror("read INA gpio value failed:");
-        close(fd_a);
-        close(fd_b);
-        return;
-    }
-    lseek(fd_a, 0, SEEK_SET);
-    if(read(fd_b, buf_b, 1) == -1){
-        perror("read INB gpio value failed:");
-        close(fd_a);
-        close(fd_b);
-        return;
-    }
-    lseek(fd_b, 0, SEEK_SET);
-
-    int result_a = atoi(buf_a);
-    int result_b = atoi(buf_b);
-
-    if( (result_a == 0 && result_b == 1) ||
-        (result_a == 1 && result_b == 0)  ){
-        //电机当前在转动，则停止（IA=0, IB=0）
-        write_a = '0';
-        write_b = '0';
-    }
-    else{
-        //电机当前停止/刹车，则正转（IA=1, IB=0）
-        write_a = '1';
-        write_b = '0';
-    }
-
-    //写入并关闭INA和INB
-    if( (write(fd_a, &write_a, 1) == -1) || (write(fd_b, &write_b, 1) == -1) ){
-        perror("write gpio value failed:");
-        close(fd_a);
-        close(fd_b);
-        return;
-    }
-
-    close(fd_a);
-    close(fd_b);
+void air_con_set(bool on){
+    //INA=1、INB=0 正转；INA=0、INB=0 停转
+    gpio_write_value(AIR_INA_GPIO, on);
+    gpio_write_value(AIR_INB_GPIO, false);
 }

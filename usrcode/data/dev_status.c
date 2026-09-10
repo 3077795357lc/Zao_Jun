@@ -34,20 +34,16 @@ DeviceStatus_t get_dev_status(DeviceID_t id){
     return s;
 }
 
-//更改状态表的某个设备的状态
-void set_dev_status(DeviceID_t id){
+//设置状态表中某设备的状态
+void set_dev_status(DeviceID_t id, DeviceStatus_t status){
     // 越界保护
     if (id < 0 || id >= DEVICE_MAX) {
         return;
     }
 
-    // 加锁，切换设备状态，解锁
+    // 加锁，写入状态，解锁
     pthread_mutex_lock(&g_lock);
-    if (g_dev[id].status == DEVICE_STATUS_OFF) {
-        g_dev[id].status = DEVICE_STATUS_ON;
-    } else {
-        g_dev[id].status = DEVICE_STATUS_OFF;
-    }
+    g_dev[id].status = status;
     g_dev[id].last_update = time(NULL);
     pthread_mutex_unlock(&g_lock);
 }

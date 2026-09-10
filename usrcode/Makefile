@@ -37,7 +37,8 @@ APP_SRC   = main.c \
             ui/pages/page_stub.c \
             data/dev_status.c \
             hardware/gpio.c \
-            hardware/env_status.c
+            hardware/env_status.c \
+            net/ntp.c
 
 LVGL_SRC := $(shell find $(LVGL_DIR)/src -name '*.c')
 ALL_SRC   = $(APP_SRC) $(LVGL_SRC)

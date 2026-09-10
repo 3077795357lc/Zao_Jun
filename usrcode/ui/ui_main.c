@@ -93,12 +93,23 @@ static void page_show(int idx)
     /* 高亮当前页对应的侧栏按钮 */
     for (int i = 0; i < PAGE_COUNT; i++) {
         bool on = (i == idx);
-        lv_obj_set_style_bg_color(nav_btns[i],
-                                  lv_color_hex(on ? NAV_BG_ON : NAV_BG_OFF), 0);
-        lv_obj_set_style_text_color(nav_btns[i],
-                                    lv_color_hex(on ? NAV_TEXT_ON : NAV_TEXT_OFF), 0);
-        lv_obj_set_style_text_color(nav_icons[i],
-                                    lv_color_hex(on ? NAV_TEXT_ON : COLOR_ACCENT), 0);
+        uint32_t btn_bg;
+        uint32_t btn_text;
+        uint32_t icon_color;
+
+        if (on) {
+            btn_bg     = NAV_BG_ON;
+            btn_text   = NAV_TEXT_ON;
+            icon_color = NAV_TEXT_ON;
+        } else {
+            btn_bg     = NAV_BG_OFF;
+            btn_text   = NAV_TEXT_OFF;
+            icon_color = COLOR_ACCENT;
+        }
+
+        lv_obj_set_style_bg_color(nav_btns[i], lv_color_hex(btn_bg), 0);
+        lv_obj_set_style_text_color(nav_btns[i], lv_color_hex(btn_text), 0);
+        lv_obj_set_style_text_color(nav_icons[i], lv_color_hex(icon_color), 0);
     }
 }
 

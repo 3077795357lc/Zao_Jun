@@ -34,10 +34,11 @@ static EnvStatus_t env;
 static void status_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
+    //从状态表取状态
+    bool led_on = get_dev_status(DEVICE_LIGHT);
+    bool air_on = get_dev_status(DEVICE_AIRCONDITIONER);
 
-    bool led_on = (DEVICE_STATUS_ON == get_dev_status(DEVICE_LIGHT));
-    bool air_on = (DEVICE_STATUS_ON == get_dev_status(DEVICE_AIRCONDITIONER));
-
+    //把状态表的情况显示到ui开关上
     if (led_on != lv_obj_has_state(led_sw, LV_STATE_CHECKED)) {
         if (led_on) lv_obj_add_state(led_sw, LV_STATE_CHECKED);
         else        lv_obj_remove_state(led_sw, LV_STATE_CHECKED);
@@ -47,8 +48,17 @@ static void status_timer_cb(lv_timer_t *timer)
         else        lv_obj_remove_state(air_sw, LV_STATE_CHECKED);
     }
 
-    lv_label_set_text(led_state_label, led_on ? "开" : "关");
-    lv_label_set_text(air_state_label, air_on ? "开" : "关");
+    if (led_on) {
+        lv_label_set_text(led_state_label, "开");
+    } else {
+        lv_label_set_text(led_state_label, "关");
+    }
+
+    if (air_on) {
+        lv_label_set_text(air_state_label, "开");
+    } else {
+        lv_label_set_text(air_state_label, "关");
+    }
 }
 
 /* 温湿度采集：DHT11 两次读取需间隔 >=1s，这里每 2s 读一次 */
@@ -64,28 +74,41 @@ static void dht11_timer_cb(lv_timer_t *timer)
 
 /* ============ 设备开关事件 ============ */
 
-/* 灯具开关：只在期望状态与状态表不一致时才翻转，避免重复触发硬件 */
+/* 灯具开关：把开关位置当作目标状态，“设定”硬件与状态表。 */
 static void led_switch_cb(lv_event_t *e)
 {
+    //sw为从事件中取出来的被点击的开关switch
     lv_obj_t *sw = lv_event_get_target(e);
+    //want_on是用户想要的结果，LV_STATE_CHECKED意为“被勾选/打开”
+    //lv_obj_has_state判断sw是否为LV_STATE_CHECKED
     bool want_on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    DeviceStatus_t status;
 
-    if (want_on != (DEVICE_STATUS_ON == get_dev_status(DEVICE_LIGHT))) {
-        led_ctrl();
-        set_dev_status(DEVICE_LIGHT);
+    if (want_on) {
+        status = DEVICE_STATUS_ON;
+    } else {
+        status = DEVICE_STATUS_OFF;
     }
+
+    led_set(want_on);
+    set_dev_status(DEVICE_LIGHT, status);
 }
 
-/* 空调开关 */
+/* 空调开关，同灯具 */
 static void air_switch_cb(lv_event_t *e)
 {
     lv_obj_t *sw = lv_event_get_target(e);
     bool want_on = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    DeviceStatus_t status;
 
-    if (want_on != (DEVICE_STATUS_ON == get_dev_status(DEVICE_AIRCONDITIONER))) {
-        air_con_ctrl();
-        set_dev_status(DEVICE_AIRCONDITIONER);
+    if (want_on) {
+        status = DEVICE_STATUS_ON;
+    } else {
+        status = DEVICE_STATUS_OFF;
     }
+
+    air_con_set(want_on);
+    set_dev_status(DEVICE_AIRCONDITIONER, status);
 }
 
 /* ============ 界面组装 ============ */
