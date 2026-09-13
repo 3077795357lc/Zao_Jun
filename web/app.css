@@ -1,0 +1,115 @@
+/* 灶君 Web 控制台样式：配色与尺寸对齐板端 ui_theme.h */
+:root{
+  --bg:#FDF6EC;        /* COLOR_BG        暖米白 */
+  --card:#FFFFFF;      /* COLOR_CARD      卡片白 */
+  --row:#FFF9F0;       /* COLOR_ROW       浅奶油行 */
+  --text:#5B4636;      /* COLOR_TEXT      暖棕 */
+  --text-dim:#A67C52;  /* COLOR_TEXT_DIM  浅棕 */
+  --sidebar:#F7E4C7;   /* COLOR_SIDEBAR   暖沙 */
+  --accent:#E08C2E;    /* COLOR_ACCENT    暖橙 */
+  --sw-off:#CDBBA6;    /* COLOR_SW_OFF    开关关 */
+  --sw-on:#4CAF50;     /* COLOR_SW_ON     开关开 */
+  --line:#EADFCF;
+  --topbar-h:90px;     /* 对齐 CONTENT_Y 122 的视觉高度 */
+  --sidebar-w:250px;   /* SIDEBAR_W */
+  --pad:28px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;
+     grid-template-rows:var(--topbar-h) 1fr;min-height:100vh}
+
+/* ---------- 顶栏：左时钟，右连接状态 ---------- */
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+        padding:0 var(--pad);}
+.clock{display:flex;flex-direction:column;line-height:1.25}
+.clock .time{font-size:30px;font-weight:700}
+.clock .date{font-size:14px;color:var(--text-dim)}
+.conn{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-dim)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--text-dim);flex:none}
+.dot.on{background:var(--sw-on);box-shadow:0 0 8px var(--sw-on)}
+.dot.err{background:#ff6b6b}
+
+/* ---------- 左侧导航 ---------- */
+.sidebar{display:flex;flex-direction:column;gap:16px;padding:0 var(--pad);}
+.nav-btn{display:flex;align-items:center;gap:14px;height:62px;padding:0 18px;
+         border:1px solid transparent;border-radius:14px;background:var(--sidebar);
+         color:var(--text-dim);font-size:17px;font-family:inherit;cursor:pointer;
+         transition:.15s;}
+.nav-btn .ico{font-size:22px;width:28px;text-align:center}
+.nav-btn:hover{border-color:var(--accent)}
+.nav-btn.active{background:var(--accent);color:#fff;font-weight:600}
+.nav-btn.active .ico{color:#fff}
+
+/* ---------- 右侧内容区 ---------- */
+.content{overflow:auto;padding:0 var(--pad) var(--pad) 0;}
+.page{display:none}
+.page.active{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}
+  .app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
+  .topbar{grid-column:1}
+  .sidebar{flex-direction:row;flex-wrap:wrap;padding:0 var(--pad) 12px}
+  .nav-btn{height:auto;padding:10px 14px}
+  .content{padding:0 var(--pad) var(--pad)}}
+
+/* ---------- 卡片 ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+      padding:18px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 16px;color:var(--accent);font-weight:700;
+         letter-spacing:.5px}
+.hint{font-size:12px;color:var(--text-dim);margin-top:10px;line-height:1.6}
+
+/* ---------- 设备行：图标 + 名称 + 开关 + 状态 ---------- */
+.row{display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;
+     background:var(--row);border-radius:14px;margin-bottom:12px}
+.row .ico{font-size:22px;width:40px;text-align:center;color:var(--accent)}
+.row .name{width:120px;font-size:17px}
+.row .spacer{flex:1}
+.row .state{font-size:17px;color:var(--text-dim);min-width:36px}
+
+/* 自绘滑动开关：对齐板端 76x40 绿色开关 */
+.switch{position:relative;width:76px;height:40px;border-radius:20px;border:none;
+        background:var(--sw-off);cursor:pointer;padding:0;transition:.2s;flex:none}
+.switch::after{content:"";position:absolute;top:4px;left:4px;width:32px;height:32px;
+               border-radius:50%;background:#fff;transition:.2s}
+.switch.on{background:var(--sw-on)}
+.switch.on::after{left:40px}
+.switch:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---------- 指标（温湿度） ---------- */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+.metric{background:var(--row);border-radius:14px;padding:14px;text-align:center}
+.metric .k{font-size:13px;color:var(--text-dim)}
+.metric .v{font-size:26px;font-weight:700;margin-top:6px}
+
+/* ---------- 表单 ---------- */
+label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px}
+input[type=text]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+                 background:var(--row);color:var(--text);font-size:14px;font-family:inherit}
+input:focus{outline:none;border-color:var(--accent)}
+.field{margin-bottom:14px}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btn{padding:10px 18px;border-radius:10px;border:1px solid var(--line);
+     background:var(--row);color:var(--text);font-size:15px;cursor:pointer;
+     font-family:inherit;transition:.15s}
+.btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+
+/* ---------- 日志 ---------- */
+#log{height:320px;overflow-y:auto;background:#FBF3E6;border-radius:12px;padding:10px;
+     font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+#log div{padding:2px 0;word-break:break-all;border-bottom:1px solid var(--line)}
+.t{color:var(--text-dim)}
+.up{color:var(--accent)}
+.down{color:#3a8f43}
+.sys{color:#b8860b}
+
+.stub{display:flex;align-items:center;justify-content:center;height:280px;
+      color:var(--text-dim);font-size:16px;background:var(--card);
+      border:1px dashed var(--line);border-radius:16px}

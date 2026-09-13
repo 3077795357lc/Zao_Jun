@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>灶君 · 智能家居控制台</title>
+<!-- 样式：配色与布局对齐板端 usrcode/ui/ui_theme.h -->
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+<!-- 外壳：顶栏时钟 + 左侧导航 + 右侧内容区（对应板端 ui_main.c）
+     侧栏按钮与各页内容全部由 app.js 生成，本文件只提供挂载点。 -->
+<div class="app">
+  <header class="topbar">
+    <div class="clock">
+      <span class="time" id="clockTime">--:--:--</span>
+      <span class="date" id="clockDate">----年--月--日</span>
+    </div>
+    <div class="conn">
+      <span class="dot" id="dot"></span>
+      <span id="connState">未连接</span>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="content" id="content"></main>
+</div>
+
+<script src="vendor/mqtt.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

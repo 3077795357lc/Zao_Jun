@@ -3,6 +3,8 @@ CC        = $(CROSS)gcc
 
 LVGL_DIR := ../lv_port_pc_vscode/lvgl
 
+# 第三方 MQTT 客户端库
+MOSQUITTO_DIR ?= /home/lc/third_party/mosquitto-2.0.18
 
 BUILD     = build
 OBJ_DIR   = $(BUILD)/obj
@@ -13,12 +15,12 @@ OBJ_DIR   = $(BUILD)/obj
 CFLAGS   += -O2 -g -Wall
 CFLAGS   += -std=gnu99
 CFLAGS   += -I. -Iui -I$(LVGL_DIR)/include -I$(LVGL_DIR)/src -I$(LVGL_DIR)
-
+CFLAGS   += -I$(MOSQUITTO_DIR)/include
 CFLAGS   += -DLV_CONF_INCLUDE_SIMPLE=1
 CFLAGS   += -Wno-unused-function -Wno-unused-variable
 
 LDFLAGS  += -static -lm -lpthread
-
+LDFLAGS  += $(MOSQUITTO_DIR)/lib/libmosquitto.a
 
 TARGET    = $(BUILD)/main_arm
 
@@ -36,7 +38,7 @@ APP_SRC   = main.c \
             data/env_status.c \
             hardware/gpio.c \
             net/ntp.c \
-
+            net/mqtt_client.c
 
 LVGL_SRC := $(shell find $(LVGL_DIR)/src -name '*.c')
 ALL_SRC   = $(APP_SRC) $(LVGL_SRC)

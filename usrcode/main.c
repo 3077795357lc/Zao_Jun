@@ -71,6 +71,9 @@ int main(void)
     // 创建界面（控件与定时器都在 ui 层内部管理）
     ui_init();
 
+    // 启动 MQTT 客户端：内部自带线程与自动重连，不会阻塞下面的主循环。
+    mqtt_client_start();
+
     // LVGL 引擎主循环：执行到期定时器、按需重绘屏幕
     while (1) {
         uint32_t sleep_ms = lv_timer_handler();
