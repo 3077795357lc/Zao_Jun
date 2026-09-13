@@ -1,13 +1,8 @@
-# board_app/Makefile —— IMX6ULL 板级 LVGL 应用
-# 用法: make           编译出 build/main_arm (ARM 静态可执行)
-#       make clean     清理 build/
-#
-# LVGL 源码复用 lv_port_pc_vscode 里的 lvgl/ (不复制、不修改库)
-
 CROSS    ?= arm-linux-gnueabihf-
 CC        = $(CROSS)gcc
 
 LVGL_DIR := ../lv_port_pc_vscode/lvgl
+
 
 BUILD     = build
 OBJ_DIR   = $(BUILD)/obj
@@ -18,10 +13,12 @@ OBJ_DIR   = $(BUILD)/obj
 CFLAGS   += -O2 -g -Wall
 CFLAGS   += -std=gnu99
 CFLAGS   += -I. -Iui -I$(LVGL_DIR)/include -I$(LVGL_DIR)/src -I$(LVGL_DIR)
+
 CFLAGS   += -DLV_CONF_INCLUDE_SIMPLE=1
 CFLAGS   += -Wno-unused-function -Wno-unused-variable
 
 LDFLAGS  += -static -lm -lpthread
+
 
 TARGET    = $(BUILD)/main_arm
 
@@ -36,9 +33,10 @@ APP_SRC   = main.c \
             ui/pages/page_dashboard.c \
             ui/pages/page_stub.c \
             data/dev_status.c \
+            data/env_status.c \
             hardware/gpio.c \
-            hardware/env_status.c \
-            net/ntp.c
+            net/ntp.c \
+
 
 LVGL_SRC := $(shell find $(LVGL_DIR)/src -name '*.c')
 ALL_SRC   = $(APP_SRC) $(LVGL_SRC)

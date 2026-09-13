@@ -36,5 +36,11 @@ typedef struct{
     uint64_t last_update;// 上次状态更新时间（CLOCK_MONOTONIC，秒）
 }DeviceID_State_t;
 
+// 温湿度数据
+typedef struct{
+    char temp;   
+    char humi;   
+}EnvStatus_t;
+
 
 #endif

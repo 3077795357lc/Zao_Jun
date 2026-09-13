@@ -8,25 +8,49 @@
 
 #include "ui/ui.h"
 
-#include "hardware/env_status.h"
 #include "hardware/gpio.h"
 #include "data/dev_status.h"
+#include "data/env_status.h"
 #include "net/ntp.h"
+#include "net/mqtt_client.h"
+
+/* 温湿度采集线程。
+ * 读到值后写入 data/env_status 状态表，UI 与 MQTT 再从状态表取数*/
+static void *env_sampler_thread(void *arg)
+{
+    (void)arg;
+    EnvStatus_t env;
+
+    while (1) {
+        if (dht11_read(&env) == 0) {
+            set_env_status(&env);
+        }
+        sleep(2);
+    }
+    return NULL;
+}
 
 int main(void)
 {
-    /* 开机对时：放在最前面，网络不通最多等 2 秒，此时屏幕还没点亮，
-     * 用户察觉不到；等界面出来时顶栏时钟已经是准的 */
+    setvbuf(stdout, NULL, _IOLBF, 0);
+
+    /* 开机对时：网络不通最多等 2 秒，*/
     ntp_sync(2000);
 
-    /* 硬件与状态表初始化。
-     * air_con_init()/led_init() 会把设备显式置为关闭，
-     * 与 dev_status_init() 的初始状态(OFF)对齐 —— 这两处必须成对修改，
-     * 否则状态表会与真实硬件相反。 */
+    // 硬件初始化。
     dht11_init();
     air_con_init();
     led_init();
+
+    //状态表初始化
     dev_status_init();
+    env_status_init();
+
+    /* 起温湿度采集线程：负责读硬件并写状态表，其他线程只读状态表 */
+    pthread_t env_tid;
+    if (pthread_create(&env_tid, NULL, env_sampler_thread, NULL) != 0) {
+        perror("pthread_create env_sampler failed");
+    }
 
     // LVGL 环境初始化
     lv_init();

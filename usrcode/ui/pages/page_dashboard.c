@@ -11,7 +11,7 @@
 #include "ui_theme.h"
 
 #include "data/dev_status.h"
-#include "hardware/env_status.h"
+#include "data/env_status.h"
 #include "hardware/gpio.h"
 
 /* ---------------- 控件句柄 ---------------- */
@@ -24,9 +24,6 @@ static lv_obj_t *led_sw;
 static lv_obj_t *air_sw;
 static lv_obj_t *led_state_label;
 static lv_obj_t *air_state_label;
-
-//环境状态
-static EnvStatus_t env;
 
 /* ============ 定时器回调 ============ */
 
@@ -61,12 +58,14 @@ static void status_timer_cb(lv_timer_t *timer)
     }
 }
 
-/* 温湿度采集：DHT11 两次读取需间隔 >=1s，这里每 2s 读一次 */
-static void dht11_timer_cb(lv_timer_t *timer)
+/* 环境信息刷新：数据由采集线程写入 data/env_status 状态表 */
+static void env_timer_cb(lv_timer_t *timer)
 {
+    EnvStatus_t env;
+
     (void)timer;
 
-    if (dht11_read(&env) == 0) {
+    if (get_env_status(&env) == 0) {
         lv_label_set_text_fmt(temp_label, "%d℃", (unsigned char)env.temp);
         lv_label_set_text_fmt(humi_label, "%d%%", (unsigned char)env.humi);
     }
@@ -244,5 +243,5 @@ void page_dashboard_create(lv_obj_t *parent)
 
     /* 定时器只在这里注册一次，页面切走再切回来不会重复创建 */
     lv_timer_create(status_timer_cb, 50, NULL);   /* 设备状态同步 */
-    lv_timer_create(dht11_timer_cb, 2000, NULL);  /* 温湿度采集 */
+    lv_timer_create(env_timer_cb, 2000, NULL);    /* 环境信息显示 */
 }

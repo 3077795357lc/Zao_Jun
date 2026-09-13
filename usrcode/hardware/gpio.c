@@ -1,8 +1,9 @@
 #include "gpio.h"
+#include <errno.h>
 
+static int dht_fd = -1;
 /* 将一个 gpio 引脚导出并配置为输出方向。
-   若该引脚已导出且方向已是 out 则直接返回，
-   避免重复写 direction 把输出电平强制拉低。*/
+   若该引脚已导出且方向已是 out 则直接返回*/
 static void gpio_export_output(int gpio_num){
     char num[8];
     char path[64];
@@ -20,6 +21,7 @@ static void gpio_export_output(int gpio_num){
         if(strncmp(cur, "out", 3) == 0){
             return;
         }
+
         //方向不是 out（残留的 in），继续往下把它修正为 out
         fd = open(path, O_WRONLY);
         if(fd == -1){
@@ -93,9 +95,6 @@ static void gpio_write_value(int gpio_num, bool level){
 
 void led_init(void){
     gpio_export_output(LED_GPIO);
-    /* 显式关灯：GPIO 电平会被上一次运行继承下来（gpio_export_output
-       在引脚已导出时不会重写 direction，也就不会把电平拉低），
-       这里主动写低电平，让硬件状态与 dev_status_init() 的初始值一致 */
     gpio_write_value(LED_GPIO, false);
 }
 
@@ -107,8 +106,7 @@ void air_con_init(void){
     //分别导出 INA/INB 引脚并配置为输出
     gpio_export_output(AIR_INA_GPIO);
     gpio_export_output(AIR_INB_GPIO);
-    /* 两个脚都拉低 = 电机停转。空调必须强制停机而不是沿用电平，
-       否则读到上一次留下的 INA=1/INB=0 时会带着电机一起启动 */
+    /* 两个脚都拉低 = 电机停转。 */
     gpio_write_value(AIR_INA_GPIO, false);
     gpio_write_value(AIR_INB_GPIO, false);
 }
@@ -117,4 +115,33 @@ void air_con_set(bool on){
     //INA=1、INB=0 正转；INA=0、INB=0 停转
     gpio_write_value(AIR_INA_GPIO, on);
     gpio_write_value(AIR_INB_GPIO, false);
+}
+
+// DHT11 温湿度传感器（硬件读取）
+void dht11_init(void){
+    dht_fd = open("/dev/mydht11_poll", O_RDWR);
+    if (dht_fd == -1){
+        perror("open dht11 failed");
+        return;
+    }
+    printf("dht11: 已打开 /dev/mydht11_poll (fd = %d)\n", dht_fd);
+}
+
+int dht11_read(EnvStatus_t *env){
+    char buf[2];
+    ssize_t n;
+
+    if (env == NULL || dht_fd == -1){
+        return -1;
+    }
+
+    /* 驱动一次返回 2 字节：buf[0]=湿度整数, buf[1]=温度整数 */
+    n = read(dht_fd, buf, 2);
+    if (n != 2){
+        return -1;
+    }
+
+    env->humi = buf[0];
+    env->temp = buf[1];
+    return 0;
 }

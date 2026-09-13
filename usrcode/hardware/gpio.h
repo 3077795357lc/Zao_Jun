@@ -15,5 +15,8 @@ void led_set(bool on);
 void air_con_init(void);
 void air_con_set(bool on);
 
+void dht11_init(void);
+int  dht11_read(EnvStatus_t *env);
+
 
 #endif

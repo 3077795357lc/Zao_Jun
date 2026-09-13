@@ -22,7 +22,7 @@ DeviceStatus_t get_dev_status(DeviceID_t id){
     DeviceStatus_t s;
 
     //越界保护
-    if (id < 0 || id > DEVICE_MAX){
+    if (id < 0 || id >= DEVICE_MAX){
         return DEVICE_STATUS_OFF;
         //printf
     }
