@@ -2,11 +2,11 @@
  * 侧栏导航表与 page_show() 的切换逻辑、设备控制、环境信息全部在此实现。
  * 数据来源统一走 MQTT（协议契约见 net/mqtt_client.c），视图只读 store。
  */
-(function () {
+(() => {
   'use strict';
 
   /* ---------- 连接配置（默认与板端 mqtt_client.c 一致） ---------- */
-  var cfg = {
+  const cfg = {
     host: 'broker.hivemq.com',
     port: '8000',
     path: '/mqtt',
@@ -14,10 +14,14 @@
   };
 
   /* ---------- 状态模型：对应板端 data/dev_status + env_status ---------- */
-  var store = { connected: false, led: null, ac: null, temp: null, humi: null, time: '--' };
+  const store = { connected: false, led: null, ac: null, temp: null, humi: null, time: '--' };
+
+  /* 延迟测量：记录每次点击的时刻，等对应的 status 消息回来再算差值。
+     t0 用 performance.now()，全程同一个浏览器时钟，所以不需要和板子对时。 */
+  const pending = { led: null, ac: null };
 
   /* ---------- 导航表：顺序与板端 pages[] 完全一致 ---------- */
-  var PAGES = [
+  const PAGES = [
     { id: 'dashboard', icon: '🏠', name: '主界面',     render: renderDashboard },
     { id: 'settings',  icon: '⚙️', name: '设置',       render: renderSettings },
     { id: 'log',       icon: '📜', name: '日志管理',   render: renderLog },
@@ -26,22 +30,24 @@
     { id: 'schedule',  icon: '⏰', name: '定时任务',   render: renderStub }
   ];
 
-  var client = null;
-  var $ = function (id) { return document.getElementById(id); };
+  let client = null;
+  const $ = (id) => document.getElementById(id);
 
   /* ============================ 工具 ============================ */
 
   function fullTopic(sub) {
-    var p = cfg.prefix.replace(/\/+$/, '');
+    const p = cfg.prefix.replace(/\/+$/, '');
     return sub.charAt(0) === '/' ? sub.slice(1) : (p + '/' + sub);
   }
 
   function log(cls, text) {
     if (!$('log')) return;
-    var box = $('log');
-    var d = document.createElement('div');
-    var now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-    d.innerHTML = '<span class="t">' + now + '</span> <span class="' + cls + '">' + esc(text) + '</span>';
+    const box = $('log');
+    const d = document.createElement('div');
+    const now = new Date();
+    const nowStr = now.toLocaleTimeString('zh-CN', { hour12: false }) + '.' +
+                   String(now.getMilliseconds()).padStart(3, '0');
+    d.innerHTML = '<span class="t">' + nowStr + '</span> <span class="' + cls + '">' + esc(text) + '</span>';
     box.appendChild(d);
     while (box.childNodes.length > 200) box.removeChild(box.firstChild);
     box.scrollTop = box.scrollHeight;
@@ -49,12 +55,14 @@
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+  /* 毫秒数去掉多余小数位，方便直接看 */
+  function fmtMs(ms) { return Math.round(ms * 10) / 10; }
 
   /* ============================ 顶栏时钟（对应 clock_timer_cb） ============================ */
 
   function tickClock() {
-    var now = new Date();
-    var week = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
+    const now = new Date();
+    const week = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
     $('clockDate').textContent =
       now.getFullYear() + '年' + String(now.getMonth() + 1).padStart(2, '0') + '月' +
       String(now.getDate()).padStart(2, '0') + '日 星期' + week;
@@ -64,29 +72,29 @@
   /* ============================ 路由（对应 page_show / nav_btn_cb） ============================ */
 
   function renderNav() {
-    var sidebar = $('sidebar');
+    const sidebar = $('sidebar');
     sidebar.innerHTML = '';
-    PAGES.forEach(function (p) {
-      var btn = document.createElement('button');
+    PAGES.forEach((p) => {
+      const btn = document.createElement('button');
       btn.className = 'nav-btn';
       btn.dataset.id = p.id;
       btn.innerHTML = '<span class="ico">' + p.icon + '</span><span>' + p.name + '</span>';
-      btn.onclick = function () { location.hash = '#/' + p.id; };
+      btn.onclick = () => { location.hash = '#/' + p.id; };
       sidebar.appendChild(btn);
     });
   }
 
   function route() {
-    var id = (location.hash.replace(/^#\/?/, '') || 'dashboard');
-    var page = PAGES.filter(function (p) { return p.id === id; })[0] || PAGES[0];
+    const id = (location.hash.replace(/^#\/?/, '') || 'dashboard');
+    const page = PAGES.filter((p) => p.id === id)[0] || PAGES[0];
 
-    document.querySelectorAll('.nav-btn').forEach(function (b) {
+    document.querySelectorAll('.nav-btn').forEach((b) => {
       b.classList.toggle('active', b.dataset.id === page.id);
     });
 
-    var content = $('content');
+    const content = $('content');
     content.innerHTML = '';
-    var el = document.createElement('div');
+    const el = document.createElement('div');
     el.className = 'page active';
     content.appendChild(el);
     page.render(el);
@@ -118,8 +126,8 @@
         '</div>' +
       '</div>';
 
-    $('swLed').onclick = function () { publish('cmd/led', store.led ? 'off' : 'on'); };
-    $('swAc').onclick  = function () { publish('cmd/ac',  store.ac  ? 'off' : 'on'); };
+    $('swLed').onclick = () => { clickCmd('led', 'cmd/led', store.led ? 'off' : 'on', '灯具'); };
+    $('swAc').onclick  = () => { clickCmd('ac',  'cmd/ac',  store.ac  ? 'off' : 'on', '空调'); };
     paintDashboard();
   }
 
@@ -128,8 +136,8 @@
     $('mTemp').textContent = store.temp === null ? '--' : store.temp;
     $('mHumi').textContent = store.humi === null ? '--' : store.humi;
 
-    [['swLed', 'stLed', store.led], ['swAc', 'stAc', store.ac]].forEach(function (t) {
-      var sw = $(t[0]), st = $(t[1]), on = t[2];
+    [['swLed', 'stLed', store.led], ['swAc', 'stAc', store.ac]].forEach((t) => {
+      const sw = $(t[0]), st = $(t[1]), on = t[2];
       sw.classList.toggle('on', on === true);
       sw.disabled = !store.connected;
       st.textContent = on === null ? '--' : (on ? '开' : '关');
@@ -154,7 +162,7 @@
         '<div class="hint">公共测试 Broker 无需账号密码。主题前缀必须与开发板固件完全一致，' +
         '否则收不到消息。</div></div>';
 
-    $('btnConn').onclick = function () {
+    $('btnConn').onclick = () => {
       cfg.host = $('host').value.trim();
       cfg.port = $('port').value.trim();
       cfg.path = $('path').value.trim();
@@ -177,7 +185,7 @@
           '<input type="text" id="dbgPayload" value="on"></div>' +
         '<button class="btn" id="btnDbg" disabled>发送</button></div>';
 
-    $('btnDbg').onclick = function () { publish($('dbgTopic').value.trim(), $('dbgPayload').value); };
+    $('btnDbg').onclick = () => { publish($('dbgTopic').value.trim(), $('dbgPayload').value); };
     log('sys', '日志已就绪');
   }
 
@@ -198,11 +206,44 @@
 
   /* ============================ MQTT（对应 mqtt_client.c 的协议） ============================ */
 
-  function publish(sub, payload) {
+  /* 用户点了一次开关：记下时刻，再发指令。
+     key 用来把这次点击和后面收到的 status 消息配对，算出端到端延迟。 */
+  function clickCmd(key, sub, payload, label) {
+    pending[key] = { t0: performance.now(), wall: Date.now(), payload: payload, label: label };
+    log('up', '👆 点击「' + label + '」 -> ' + payload);
+    publish(sub, payload, key);
+  }
+
+  function publish(sub, payload, key) {
     if (!client || !client.connected) { log('sys', '未连接，发送失败'); return; }
-    var topic = fullTopic(sub);
-    client.publish(topic, String(payload), { qos: 1, retain: false });
-    log('up', '↑ ' + topic + '  ' + payload);
+    const topic = fullTopic(sub);
+    const p = key ? pending[key] : null;
+    /* qos=1 的回调在收到 Broker 的 PUBACK 时触发，代表上行这一段跑完了 */
+    client.publish(topic, String(payload), { qos: 1, retain: false }, (err) => {
+      if (err) { log('sys', '发布失败: ' + err.message); return; }
+      log('down', '↑ ' + topic + '  ' + payload + ' 已确认（PUBACK）');
+      if (p) {
+        p.tPuback = performance.now();
+        log('sys', '① Web->Broker 上行完成: 点击后 ' + fmtMs(p.tPuback - p.t0) + ' ms');
+      }
+    });
+  }
+
+  /* 板端状态回到网页：和这次点击的 t0 相减，得到"点击->状态刷新"的整段延迟 */
+  function reportLatency(key, on) {
+    const p = pending[key];
+    if (!p) return;
+    pending[key] = null;
+    const total = performance.now() - p.t0;
+    /* 超过 10s 说明不是这次点击引起的（比如重连后板端补发的 retain 状态），不算数 */
+    if (total > 10000) return;
+    let extra = '';
+    if (p.tPuback) {
+      extra = '（上行 ' + fmtMs(p.tPuback - p.t0) + ' ms / 板端+下行 ' +
+              fmtMs(total - (p.tPuback - p.t0)) + ' ms）';
+    }
+    log('sys', '② ' + p.label + '状态刷新为「' + (on ? '开' : '关') + '」: 点击->刷新共 ' +
+        fmtMs(total) + ' ms' + extra);
   }
 
   function connect() {
@@ -212,8 +253,8 @@
     }
     if (client) { client.end(true); client = null; }
 
-    var url = 'ws://' + cfg.host + ':' + cfg.port + cfg.path;
-    var clientId = 'web_' + Math.random().toString(16).slice(2, 10);
+    const url = 'ws://' + cfg.host + ':' + cfg.port + cfg.path;
+    const clientId = 'web_' + Math.random().toString(16).slice(2, 10);
     log('sys', '正在连接 ' + url + ' …');
 
     client = mqtt.connect(url, {
@@ -221,23 +262,23 @@
       connectTimeout: 8000, reconnectPeriod: 4000
     });
 
-    client.on('connect', function () {
+    client.on('connect', () => {
       store.connected = true;
       paintConn();
-      var sub = cfg.prefix.replace(/\/+$/, '') + '/status/#';
-      client.subscribe(sub, { qos: 1 }, function (err) {
+      const sub = cfg.prefix.replace(/\/+$/, '') + '/status/#';
+      client.subscribe(sub, { qos: 1 }, (err) => {
         log('sys', err ? ('订阅失败: ' + err.message) : ('已订阅 ' + sub));
       });
     });
 
-    client.on('message', function (topic, payload) {
-      var text = payload.toString();
+    client.on('message', (topic, payload) => {
+      const text = payload.toString();
       log('down', '↓ ' + topic + '  ' + text);
-      var name = topic.split('/').slice(-2).join('/');
-      if (name === 'status/led') store.led = (text === 'on');
-      else if (name === 'status/ac') store.ac = (text === 'on');
+      const name = topic.split('/').slice(-2).join('/');
+      if (name === 'status/led') { store.led = (text === 'on'); reportLatency('led', store.led); }
+      else if (name === 'status/ac') { store.ac = (text === 'on'); reportLatency('ac', store.ac); }
       else if (name === 'status/env') {
-        try { var o = JSON.parse(text);
+        try { const o = JSON.parse(text);
           if (o.temp !== undefined) store.temp = o.temp;
           if (o.humi !== undefined) store.humi = o.humi;
         } catch (e) { /* 非 JSON 忽略 */ }
@@ -246,15 +287,21 @@
       paintConn();
     });
 
-    client.on('error', function (e) { log('sys', '错误: ' + e.message); });
-    client.on('close', function () { store.connected = false; $('dot').className = 'dot err'; paintConn(); });
-    client.on('reconnect', function () { log('sys', '重连中…'); });
+    client.on('error', (e) => { log('sys', '错误: ' + e.message); });
+    client.on('close', () => {
+      store.connected = false;
+      pending.led = pending.ac = null;   /* 断线了，这次点击的测量作废 */
+      $('dot').className = 'dot err';
+      paintConn();
+    });
+    client.on('reconnect', () => { log('sys', '重连中…'); });
   }
 
   function disconnect() {
     if (client) { client.end(true); client = null; }
     store.connected = false;
     store.led = store.ac = store.temp = store.humi = null;
+    pending.led = pending.ac = null;
     log('sys', '已断开');
     paintConn();
   }
