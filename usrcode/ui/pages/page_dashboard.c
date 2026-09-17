@@ -13,6 +13,7 @@
 #include "data/dev_status.h"
 #include "data/env_status.h"
 #include "hardware/gpio.h"
+#include "net/mqtt_client.h"
 
 /* ---------------- 控件句柄 ---------------- */
 // 温湿度数值
@@ -91,6 +92,7 @@ static void led_switch_cb(lv_event_t *e)
 
     led_set(want_on);
     set_dev_status(DEVICE_LIGHT, status);
+    mqtt_publish_led_status();
 }
 
 /* 空调开关，同灯具 */
@@ -108,6 +110,7 @@ static void air_switch_cb(lv_event_t *e)
 
     air_con_set(want_on);
     set_dev_status(DEVICE_AIRCONDITIONER, status);
+    mqtt_publish_ac_status();
 }
 
 /* ============ 界面组装 ============ */
