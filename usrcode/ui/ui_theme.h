@@ -19,7 +19,9 @@
 #define SCREEN_H       600
 #define SIDEBAR_W      250        /* 左侧导航栏宽度 */
 #define SIDEBAR_X      28
-#define SIDEBAR_BTN_H  62         /* 侧栏按钮高度（6 个入口要放得下） */
+#define SIDEBAR_Y      14         /* 侧栏顶部,与顶栏时钟基本齐平 */
+#define SIDEBAR_H      558        /* 侧栏高度 */
+#define SIDEBAR_BTN_H  62         /* 侧栏按钮最小高度 */
 #define SIDEBAR_GAP    16         /* 侧栏按钮间距 */
 #define PANEL_X        300        /* 右侧卡片起点 */
 #define PANEL_RIGHT    28         /* 右侧卡片右边距 */

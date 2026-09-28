@@ -27,12 +27,15 @@ static const Page_t pages[] = {
 #define PAGE_COUNT ((int)(sizeof(pages) / sizeof(pages[0])))
 
 static lv_obj_t *content;                /* 右侧内容区，各页面的挂载点 */
+static lv_obj_t *nav_bar;                /* 侧栏容器，收起时高度跟着变 */
 static lv_obj_t *nav_btns[PAGE_COUNT];   /* 侧栏按钮，用于高亮当前页 */
 static lv_obj_t *nav_icons[PAGE_COUNT];  /* 侧栏按钮里的图标，需单独换色 */
 static lv_obj_t *page_obj[PAGE_COUNT];   /* 各页面根容器，首次进入时创建 */
 
 static lv_obj_t *time_label;
 static lv_obj_t *date_label;
+static lv_obj_t *page_icon_label;   /* 右上角标签的图标 */
+static lv_obj_t *page_name_label;   /* 右上角标签的页面名 */
 
 /* 侧栏文字配色的两种状态 */
 #define NAV_BG_ON       COLOR_ACCENT
@@ -62,11 +65,41 @@ static void clock_timer_cb(lv_timer_t *timer)
 
 /* ============ 页面切换 ============ */
 
+/* 主界面显示完整导航；进入子页面后收起，只留“主界面”一个按钮做返回入口，
+ * 腾出来的横向空间交给内容区，子页面就能铺得更宽。 */
+static void sidebar_set_collapsed(bool collapsed)
+{
+    for (int i = 1; i < PAGE_COUNT; i++) {
+        lv_obj_set_hidden(nav_btns[i], collapsed);
+    }
+
+    /* 只剩一个按钮时不能让它被 flex 拉伸撑满整列 */
+    lv_obj_set_flex_grow(nav_btns[0], collapsed ? 0 : 1);
+    lv_obj_set_height(nav_bar, collapsed ? SIDEBAR_BTN_H : SIDEBAR_H);
+}
+
+/* 内容区：主界面时让开侧栏，子页面时左移加宽占满整屏 */
+static void content_set_expanded(bool expanded)
+{
+    if (expanded) {
+        lv_obj_set_width(content, SCREEN_W - SIDEBAR_X - PANEL_RIGHT);
+        lv_obj_align(content, LV_ALIGN_TOP_LEFT, SIDEBAR_X, CONTENT_Y);
+    } else {
+        lv_obj_set_width(content, SCREEN_W - PANEL_X - PANEL_RIGHT);
+        lv_obj_align(content, LV_ALIGN_TOP_LEFT, PANEL_X, CONTENT_Y);
+    }
+}
+
 static void page_show(int idx)
 {
     if (idx < 0 || idx >= PAGE_COUNT) {
         return;
     }
+
+    /* 0 号是主界面：侧栏展开；其余页面侧栏收起、内容区加宽 */
+    bool is_home = (idx == 0);
+    sidebar_set_collapsed(!is_home);
+    content_set_expanded(!is_home);
 
     /* 首次进入才构建页面内容 */
     if (page_obj[idx] == NULL) {
@@ -89,6 +122,10 @@ static void page_show(int idx)
         if (i == idx) lv_obj_set_hidden(page_obj[i], false);
         else          lv_obj_set_hidden(page_obj[i], true);
     }
+
+    /* 右上角标签同步当前页面（图标 + 页面名） */
+    lv_label_set_text(page_icon_label, pages[idx].icon);
+    lv_label_set_text(page_name_label, pages[idx].name);
 
     /* 高亮当前页对应的侧栏按钮 */
     for (int i = 0; i < PAGE_COUNT; i++) {
@@ -145,12 +182,41 @@ static void header_create(lv_obj_t *scr)
     lv_obj_set_style_text_color(date_label, lv_color_hex(COLOR_TEXT_DIM), 0);
 }
 
+/* 右上角：当前页面标签（图标 + 页面名），与顶栏时钟同一行。
+ * 图标和文字用两套字体，所以要放进一个横向 flex 容器里。 */
+static void page_tag_create(lv_obj_t *scr)
+{
+    lv_obj_t *tag = lv_obj_create(scr);
+    lv_obj_set_size(tag, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(tag, LV_ALIGN_TOP_RIGHT, -PANEL_RIGHT, 12);
+    lv_obj_set_style_bg_color(tag, lv_color_hex(COLOR_SIDEBAR), 0);
+    lv_obj_set_style_radius(tag, 16, 0);
+    lv_obj_set_style_border_width(tag, 0, 0);
+    lv_obj_set_style_shadow_width(tag, 0, 0);
+    lv_obj_set_style_pad_hor(tag, 18, 0);
+    lv_obj_set_style_pad_ver(tag, 9, 0);
+    lv_obj_set_scrollable(tag, false);
+    lv_obj_set_flex_flow(tag, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(tag, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(tag, 10, 0);
+
+    page_icon_label = lv_label_create(tag);
+    lv_obj_set_style_text_font(page_icon_label, &icons_32, 0);
+    lv_obj_set_style_text_color(page_icon_label, lv_color_hex(COLOR_ACCENT), 0);
+
+    page_name_label = lv_label_create(tag);
+    lv_obj_set_style_text_font(page_name_label, &heiti_32, 0);
+    lv_obj_set_style_text_color(page_name_label, lv_color_hex(COLOR_TEXT), 0);
+}
+
 /* 左侧导航栏：各页面的入口，垂直对齐 */
 static void sidebar_create(lv_obj_t *scr)
 {
     lv_obj_t *bar = lv_obj_create(scr);
-    lv_obj_set_size(bar, SIDEBAR_W, CONTENT_H);
-    lv_obj_align(bar, LV_ALIGN_TOP_LEFT, SIDEBAR_X, CONTENT_Y);
+    nav_bar = bar;
+    lv_obj_set_size(bar, SIDEBAR_W, SIDEBAR_H);
+    lv_obj_align(bar, LV_ALIGN_TOP_LEFT, SIDEBAR_X, SIDEBAR_Y);
     lv_obj_set_style_bg_opa(bar, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);
@@ -161,6 +227,7 @@ static void sidebar_create(lv_obj_t *scr)
     for (int i = 0; i < PAGE_COUNT; i++) {
         lv_obj_t *btn = lv_button_create(bar);
         lv_obj_set_size(btn, LV_PCT(100), SIDEBAR_BTN_H);
+        lv_obj_set_flex_grow(btn, 1);   /* 6 个按钮均分剩余高度，纵向撑满整列 */
         lv_obj_set_style_radius(btn, 18, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
         lv_obj_set_style_pad_left(btn, 16, 0);
@@ -209,6 +276,7 @@ void ui_init(void)
     lv_obj_set_scrollable(scr, false);
 
     header_create(scr);
+    page_tag_create(scr);
     content_create(scr);
     sidebar_create(scr);
 
