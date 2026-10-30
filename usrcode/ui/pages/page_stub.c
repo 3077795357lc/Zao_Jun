@@ -34,11 +34,6 @@ static void stub_create(lv_obj_t *parent, const char *icon, const char *title)
     lv_label_set_text(title_label, title);
     lv_obj_set_style_text_font(title_label, &heiti_32, 0);
     lv_obj_set_style_text_color(title_label, lv_color_hex(COLOR_TEXT), 0);
-
-    lv_obj_t *hint_label = lv_label_create(card);
-    lv_label_set_text(hint_label, "功能开发中");
-    lv_obj_set_style_text_font(hint_label, &heiti_32, 0);
-    lv_obj_set_style_text_color(hint_label, lv_color_hex(COLOR_TEXT_DIM), 0);
 }
 
 void page_settings_create(lv_obj_t *parent)
@@ -49,11 +44,6 @@ void page_settings_create(lv_obj_t *parent)
 void page_log_create(lv_obj_t *parent)
 {
     stub_create(parent, ICON_LOG, "日志管理");
-}
-
-void page_camera_create(lv_obj_t *parent)
-{
-    stub_create(parent, ICON_CAM, "查看摄像头");
 }
 
 void page_audio_create(lv_obj_t *parent)

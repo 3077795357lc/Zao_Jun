@@ -33,12 +33,16 @@ APP_SRC   = main.c \
             assets/fonts/icons_32.c \
             ui/ui_main.c \
             ui/pages/page_dashboard.c \
+            ui/pages/page_camera.c \
             ui/pages/page_stub.c \
             data/dev_status.c \
             data/env_status.c \
+            hardware/backlight.c \
+            hardware/camera_monitor.c \
             hardware/gpio.c \
             net/ntp.c \
             net/mqtt_client.c
+            
 
 LVGL_SRC := $(shell find $(LVGL_DIR)/src -name '*.c')
 ALL_SRC   = $(APP_SRC) $(LVGL_SRC)
